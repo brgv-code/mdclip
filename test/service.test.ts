@@ -77,7 +77,7 @@ describe('bundle', () => {
 
 describe('defaults', () => {
   it('ships a swallowable hotkey and audible feedback', () => {
-    expect(DEFAULT_CONFIG).toEqual({ hotkey: 'ctrl+shift+c', notify: true, sound: 'Tink' });
+    expect(DEFAULT_CONFIG).toEqual({ hotkey: 'ctrl+shift+c', notify: true, sound: 'Tink', rtf: true });
   });
 });
 

@@ -59,8 +59,10 @@ mdclip listen              # same thing in the foreground, to try it out
 Change the hotkey or turn notifications off in `~/.config/mdclip/config.json`:
 
 ```json
-{ "hotkey": "ctrl+shift+c", "notify": true, "sound": "Tink" }
+{ "hotkey": "ctrl+shift+c", "notify": true, "sound": "Tink", "rtf": true }
 ```
+
+`rtf` adds the flavor native apps want (Mail, Pages, Keynote) and costs about 290 ms of a 450 ms round trip, since `textutil` is a separate process. Set it to `false` if you only paste into web editors.
 
 `sound` is any name from `/System/Library/Sounds`, or `false` for silence. It exists because notifications are posted through `osascript`, so macOS attributes them to Script Editor and drops them when that app's notifications are off; the sound always plays.
 

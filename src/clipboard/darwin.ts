@@ -42,6 +42,25 @@ export async function htmlToRtf(html: string): Promise<string | null> {
   return res.code === 0 && res.stdout ? res.stdout : null;
 }
 
+// Copy, wait for the app to write the pasteboard, and read it back, all in one osascript.
+// Polling from Node costs a process spawn per tick (~70 ms), which dominated the whole operation.
+const COPY_AND_READ_SCRIPT = `
+ObjC.import('AppKit');
+function run() {
+  const pb = $.NSPasteboard.generalPasteboard;
+  const before = pb.changeCount;
+  Application('System Events').keystroke('c', { using: 'command down' });
+  const deadline = Date.now() + 400;  // apps write the pasteboard within ~150 ms
+  while (Date.now() < deadline && pb.changeCount === before) $.NSThread.sleepForTimeInterval(0.02);
+  const get = (t) => { const s = pb.stringForType(t); return s.isNil() ? null : s.js; };
+  return JSON.stringify({
+    changed: pb.changeCount !== before,
+    text: get('public.utf8-plain-text'),
+    html: get('public.html'),
+    rtf: get('public.rtf'),
+  });
+}`;
+
 const COUNT_SCRIPT = `
 ObjC.import('AppKit');
 function run() { return String($.NSPasteboard.generalPasteboard.changeCount); }`;
@@ -49,6 +68,7 @@ function run() { return String($.NSPasteboard.generalPasteboard.changeCount); }`
 export const darwin: ClipboardAdapter & {
   changeCount(): Promise<number>;
   copy(): Promise<void>;
+  copyAndRead(): Promise<ClipboardContent & { changed: boolean }>;
   notify(title: string, body: string): Promise<void>;
 } = {
   async read(): Promise<ClipboardContent> {
@@ -62,6 +82,10 @@ export const darwin: ClipboardAdapter & {
   },
   async copy(): Promise<void> {
     await keystroke('c');
+  },
+  /** Cmd+C then read, in a single subprocess. `changed` is false when nothing was selected. */
+  async copyAndRead(): Promise<ClipboardContent & { changed: boolean }> {
+    return JSON.parse(await jxa(COPY_AND_READ_SCRIPT)) as ClipboardContent & { changed: boolean };
   },
   async changeCount(): Promise<number> {
     return Number(await jxa(COUNT_SCRIPT));

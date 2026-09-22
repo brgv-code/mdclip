@@ -7,12 +7,14 @@ export interface Config {
   notify: boolean;
   /** A sound always plays; notifications are posted by osascript and some systems suppress those. */
   sound: string | false;
+  /** RTF costs ~290 ms of the ~450 ms round trip. Native apps (Mail, Pages) need it; web editors do not. */
+  rtf: boolean;
 }
 
 export const CONFIG_PATH = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'mdclip', 'config.json');
 
 // Ctrl+Shift+C by default: the hook cannot swallow keystrokes, and Cmd+Shift+C is Chrome's "inspect element".
-export const DEFAULT_CONFIG: Config = { hotkey: 'ctrl+shift+c', notify: true, sound: 'Tink' };
+export const DEFAULT_CONFIG: Config = { hotkey: 'ctrl+shift+c', notify: true, sound: 'Tink', rtf: true };
 
 export function loadConfig(): Config {
   if (!existsSync(CONFIG_PATH)) return DEFAULT_CONFIG;

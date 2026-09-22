@@ -22,12 +22,8 @@ export function log(line: string): void {
 
 /** Copy the current selection (Cmd+C) and complete the clipboard flavors. */
 export async function smartCopy(config: Config): Promise<void> {
-  const before = await darwin.changeCount();
-  await darwin.copy();
-  // Wait for the app to finish writing the pasteboard; fall back to whatever is there already.
-  for (let i = 0; i < 16 && (await darwin.changeCount()) === before; i++) await sleep(50);
-
-  const current = await darwin.read();
+  // Nothing selected means the pasteboard never changes: convert whatever is on it already.
+  const current = await darwin.copyAndRead();
   const result = enrich(current);
   if (!result) {
     log('nothing to convert (empty clipboard)');
@@ -35,7 +31,7 @@ export async function smartCopy(config: Config): Promise<void> {
     return;
   }
   const { content, direction } = result;
-  if (direction === 'md-to-rich' && content.html) content.rtf = await htmlToRtf(content.html);
+  if (config.rtf && direction === 'md-to-rich' && content.html) content.rtf = await htmlToRtf(content.html);
   await darwin.write(content);
 
   const summary = direction === 'md-to-rich' ? 'Markdown copied as rich text' : 'Rich text copied as markdown';
