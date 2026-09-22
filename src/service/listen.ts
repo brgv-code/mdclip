@@ -109,12 +109,19 @@ export async function listen(): Promise<void> {
     if (armed && noModifiers(e)) fire();
   });
 
+  uIOhook.start();
+  // The hook's native thread does not hold the event loop open on its own.
+  const keepAlive = setInterval(() => {}, 60_000);
   log(`listening for ${formatHotkey(hotkey)} (config: ${config.hotkey})`);
 
   const stop = () => {
+    clearInterval(keepAlive);
     uIOhook.stop();
     process.exit(0);
   };
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
+  // Launched by the app bundle: if that launcher dies, do not linger as an orphan.
+  const launcher = process.ppid;
+  if (launcher !== 1) setInterval(() => process.ppid === 1 && stop(), 5000);
 }
