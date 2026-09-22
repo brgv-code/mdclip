@@ -74,8 +74,12 @@ function fail(message: string): never {
 }
 
 function stdinHasData(): boolean {
+  if (process.stdin.isTTY) return false;
+  // Git Bash pipes on Windows do not report as a FIFO, so trust "not a terminal" there.
+  if (process.platform === 'win32') return true;
   try {
     const stat = fstatSync(0);
+    // A launcher hands us /dev/null (a character device); reading it would just block.
     return stat.isFIFO() || stat.isFile();
   } catch {
     return false;
@@ -85,7 +89,8 @@ function stdinHasData(): boolean {
 async function readInput(opts: Options): Promise<{ source: string; text: string | null; html: string | null }> {
   if (opts.file === '-' || (opts.file === null && !opts.fromClipboard && stdinHasData())) {
     const data = readFileSync(0, 'utf8');
-    return { source: 'stdin', text: data, html: data };
+    // An empty pipe is not an error: fall through to the clipboard.
+    if (data.trim()) return { source: 'stdin', text: data, html: data };
   }
   if (opts.file) {
     const data = readFileSync(opts.file, 'utf8');
