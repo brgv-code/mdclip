@@ -45,7 +45,9 @@ This registers a small background listener that starts at login. Press **Ctrl+Sh
 
 Tables copied out of a terminal are repaired on the way: Claude Code, `bat` and friends draw them with box-drawing characters rather than markdown, and mdclip turns that art back into a GFM table before converting. Wrapped cells (a table wider than your terminal) cannot be recovered.
 
-Then paste with a normal Cmd+V anywhere. Motion and Docs pick the HTML, Obsidian and the terminal pick the markdown. No paste hotkey, no direction to think about. Pressing the hotkey with nothing selected converts whatever is already on the clipboard, so "Cmd+C, then Ctrl+Shift+C" works too.
+Then paste with a normal Cmd+V anywhere. Motion, Notion and Docs pick the HTML, the terminal picks the markdown.
+
+Obsidian is a special case: it converts pasted HTML itself, so it uses that flavor rather than our markdown, and a table pasted in the middle of a line will not render because markdown needs a table to start its own block. Paste on an empty line, or turn off Auto convert HTML in Obsidian's Editor settings to make it take our markdown verbatim. No paste hotkey, no direction to think about. Pressing the hotkey with nothing selected converts whatever is already on the clipboard, so "Cmd+C, then Ctrl+Shift+C" works too.
 
 First run: macOS asks for **Accessibility** access for `node` (the listener needs it to see the hotkey and to send Cmd+C). Allow it in System Settings > Privacy & Security > Accessibility; the listener waits and starts by itself. If the hotkey still does nothing, `mdclip service restart`.
 
@@ -141,7 +143,9 @@ pnpm lint         # biome
 node dist/cli.js --help
 ```
 
-Layout: `src/convert.ts` (pure conversion, tested), `src/clipboard/<platform>.ts` (one adapter per OS behind a tiny interface), `src/cli.ts` (argument handling and input detection), `src/service/` (hotkey listener via `uiohook-napi`, smart-copy logic, launchd agent).
+Layout: `src/convert.ts` (pure conversion, tested), `src/clipboard/<platform>.ts` (one adapter per OS behind a tiny interface), `src/cli.ts` (argument handling and input detection), `src/service/` (smart-copy logic, launchd agent, bundle builder), `native/` (the C launcher that owns the event tap).
+
+The two binaries in `native/` are committed so `npm install` needs no compiler. Rebuild them from source with `native/build.sh` (Xcode Command Line Tools); they are universal arm64 + x86_64 and ad-hoc signed.
 
 Release: bump `version` in `package.json`, tag `vX.Y.Z`, push the tag. `publish.yml` publishes to npm with provenance via trusted publishing. Then update `url` and `sha256` in the Homebrew formula.
 

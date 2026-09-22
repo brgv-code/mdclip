@@ -11,10 +11,9 @@ describe('repairBoxTables', () => {
       [
         '|  | Setup cost |',
         '| --- | --- |',
-        '| Stay on the main DB | None. Already done. |',
-        '| Option 2 (connection string) | One secret per environment, plus a permanent second DB connection in the worker |',
-        '| Option 1 (Hyperdrive) | Option 2, plus provisioning Hyperdrive configs |',
-        '| Option 3 (Studio owns it) | Rewrite, and R2 moves to the CMS worker |',
+        '| Keep one database | None. Already done. |',
+        '| Add a connection pooler (managed) | One secret per environment, plus a permanent second connection in the worker |',
+        '| Split into two services | The pooler work, plus provisioning configs |',
       ].join('\n'),
     );
   });

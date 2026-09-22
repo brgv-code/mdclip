@@ -20,6 +20,10 @@
     "type": "git",
     "url": "https://github.com/brgv-code/mdclip"
   },
+  "bugs": {
+    "url": "https://github.com/brgv-code/mdclip/issues"
+  },
+  "homepage": "https://github.com/brgv-code/mdclip#readme",
   "type": "module",
   "bin": {
     "mdclip": "dist/cli.js"
