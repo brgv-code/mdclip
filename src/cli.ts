@@ -102,7 +102,7 @@ async function service(action: string | null): Promise<void> {
       const config = loadConfig();
       process.stderr.write(
         `Installed. Press ${config.hotkey} instead of Cmd+C to copy with every flavor.\n` +
-          `macOS now asks for Accessibility access for "node" (${process.execPath}). Allow it; the listener picks it up by itself.\n` +
+          'macOS now asks for Accessibility access for "mdclip". Allow it; the listener picks it up by itself.\n' +
           `Config: ${CONFIG_PATH} (default ${JSON.stringify(DEFAULT_CONFIG)})\nLog: ${launchd.LOG}\n`,
       );
       return;

@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { run } from '../clipboard/exec.js';
+import { buildBundle, removeBundle } from './bundle.js';
 
 export const LABEL = 'dev.mdclip.listen';
 const PLIST = join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
@@ -9,8 +10,8 @@ export const LOG = join(homedir(), 'Library', 'Logs', 'mdclip.log');
 
 const escapeXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export function plist(nodePath: string, cliPath: string): string {
-  const args = [nodePath, cliPath, 'listen'].map((a) => `    <string>${escapeXml(a)}</string>`).join('\n');
+export function plist(program: string): string {
+  const args = [program].map((a) => `    <string>${escapeXml(a)}</string>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -56,7 +57,8 @@ export async function install(cliPath: string): Promise<void> {
       await new Promise((r) => setTimeout(r, 100));
     }
   }
-  writeFileSync(PLIST, plist(process.execPath, cliPath));
+  const program = await buildBundle(process.execPath, cliPath, LOG);
+  writeFileSync(PLIST, plist(program));
   const res = await launchctl('bootstrap', domain(), PLIST);
   if (res.code !== 0) throw new Error(`launchctl bootstrap failed: ${res.stderr.trim() || res.stdout.trim()}`);
 }
@@ -65,6 +67,7 @@ export async function uninstall(): Promise<boolean> {
   if (!existsSync(PLIST)) return false;
   await launchctl('bootout', `${domain()}/${LABEL}`);
   unlinkSync(PLIST);
+  removeBundle();
   return true;
 }
 

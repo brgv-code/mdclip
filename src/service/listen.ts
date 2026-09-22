@@ -1,5 +1,5 @@
 import { appendFileSync } from 'node:fs';
-import { darwin, htmlToRtf } from '../clipboard/darwin.js';
+import { accessibilityTrusted, darwin, htmlToRtf } from '../clipboard/darwin.js';
 import { type Config, formatHotkey, type Hotkey, loadConfig, parseHotkey } from './config.js';
 import { enrich } from './smart-copy.js';
 
@@ -58,35 +58,6 @@ export async function smartCopy(config: Config): Promise<void> {
   if (config.notify) await darwin.notify('mdclip', summary);
 }
 
-async function waitForAccessibility(uIOhook: typeof import('uiohook-napi').uIOhook): Promise<void> {
-  const eventsFlow = (ms: number) =>
-    new Promise<boolean>((resolve) => {
-      const done = (ok: boolean) => {
-        clearTimeout(t);
-        uIOhook.off('input', onInput);
-        resolve(ok);
-      };
-      const onInput = () => done(true);
-      const t = setTimeout(() => done(false), ms);
-      uIOhook.on('input', onInput);
-    });
-
-  uIOhook.start();
-  if (await eventsFlow(8000)) return;
-  log(
-    `no input events: allow "node" (${process.execPath}) in System Settings > Privacy & Security > Accessibility. Waiting.`,
-  );
-  for (;;) {
-    uIOhook.stop();
-    await sleep(5000);
-    uIOhook.start();
-    if (await eventsFlow(4000)) {
-      log('Accessibility granted');
-      return;
-    }
-  }
-}
-
 export async function listen(): Promise<void> {
   if (process.platform !== 'darwin') throw new Error('mdclip listen is macOS only for now.');
   const config = loadConfig();
@@ -99,12 +70,14 @@ export async function listen(): Promise<void> {
     throw new Error('uiohook-napi is not installed. Reinstall mdclip, or run: npm i -g uiohook-napi');
   }
   const { uIOhook, UiohookKey } = hook;
-  // Keep the loop alive: when the hook cannot start, its thread ends and Node would otherwise exit silently.
-  setInterval(() => {}, 60_000);
 
-  // start() asks macOS for Accessibility in-process, so the prompt names this node binary.
-  // There is no API for "did the tap work", but a working tap streams mouse moves, so wait for any event.
-  await waitForAccessibility(uIOhook);
+  // uIOhook.start() aborts the process (SIGABRT) when Accessibility is missing, so never call it untrusted.
+  // The check runs in osascript, a child, which macOS attributes to our app bundle ("mdclip").
+  if (!(await accessibilityTrusted(true))) {
+    log('waiting: allow "mdclip" in System Settings > Privacy & Security > Accessibility');
+    while (!(await accessibilityTrusted(false))) await sleep(3000);
+    log('Accessibility granted');
+  }
   const keycode = (UiohookKey as Record<string, number>)[hotkey.key.toUpperCase()];
   if (keycode === undefined) throw new Error(`Unknown key "${hotkey.key}"`);
 

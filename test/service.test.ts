@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { appleScript } from '../src/service/bundle.js';
 import { formatHotkey, parseHotkey } from '../src/service/config.js';
 import { plist } from '../src/service/launchd.js';
 import { enrich } from '../src/service/smart-copy.js';
@@ -42,11 +43,19 @@ describe('enrich', () => {
 });
 
 describe('plist', () => {
-  it('runs node with the cli in listen mode and escapes paths', () => {
-    const p = plist('/usr/local/bin/node', '/Users/x/a&b/cli.js');
-    expect(p).toContain('<string>/usr/local/bin/node</string>');
-    expect(p).toContain('<string>/Users/x/a&amp;b/cli.js</string>');
-    expect(p).toContain('<string>listen</string>');
+  it('runs the bundled applet and escapes paths', () => {
+    const p = plist('/Users/x/a&b/mdclip.app/Contents/MacOS/applet');
+    expect(p).toContain('<string>/Users/x/a&amp;b/mdclip.app/Contents/MacOS/applet</string>');
     expect(p).toContain('<key>RunAtLoad</key>');
+  });
+});
+
+describe('appleScript', () => {
+  it('execs node with the cli in listen mode, quoting both paths', () => {
+    const s = appleScript('/opt/node', '/Users/x/it"s/cli.js', '/Users/x/Library/Logs/mdclip.log');
+    expect(s).toContain(
+      'do shell script "exec " & quoted form of "/opt/node" & " " & quoted form of "/Users/x/it\\"s/cli.js" & " listen >> " & quoted form of "/Users/x/Library/Logs/mdclip.log" & " 2>&1"',
+    );
+    expect(s).toMatch(/^try\n[\s\S]*end try\n$/);
   });
 });
