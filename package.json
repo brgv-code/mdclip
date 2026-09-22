@@ -29,6 +29,7 @@
     "README.md",
     "LICENSE"
   ],
+  "packageManager": "pnpm@11.21.0",
   "engines": {
     "node": ">=18"
   },
