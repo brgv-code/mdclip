@@ -6,6 +6,7 @@ import { clipboard } from './clipboard/index.js';
 import { htmlToMd, mdToHtml } from './convert.js';
 import { CONFIG_PATH, DEFAULT_CONFIG, loadConfig } from './service/config.js';
 import * as launchd from './service/launchd.js';
+import { repairBoxTables } from './terminal-tables.js';
 
 const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
 
@@ -140,7 +141,7 @@ async function main(): Promise<void> {
   const cb = clipboard();
 
   if (opts.command === 'rich') {
-    const markdown = input.text?.trim();
+    const markdown = repairBoxTables(input.text ?? '').trim();
     if (!markdown) fail(`Nothing to convert: no text found on ${input.source}.`);
     const html = mdToHtml(markdown);
     if (opts.stdout) {

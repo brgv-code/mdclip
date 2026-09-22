@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { argvFile, infoPlist } from '../src/service/bundle.js';
+import { argvFile, hotkeyFile, infoPlist } from '../src/service/bundle.js';
 import { formatHotkey, parseHotkey } from '../src/service/config.js';
+import { flagMask, keycodeFor } from '../src/service/keycodes.js';
 import { plist } from '../src/service/launchd.js';
 import { enrich } from '../src/service/smart-copy.js';
 
@@ -37,6 +38,12 @@ describe('enrich', () => {
     expect(r?.content.rtf).toBe('{\\rtf1}');
   });
 
+  it('repairs a terminal-rendered table before converting', () => {
+    const r = enrich({ text: '┌───┬───┐\n│ a │ b │\n├───┼───┤\n│ 1 │ 2 │\n└───┴───┘' });
+    expect(r?.content.text).toBe('| a | b |\n| --- | --- |\n| 1 | 2 |');
+    expect(r?.content.html).toContain('<table>');
+  });
+
   it('returns null for an empty clipboard', () => {
     expect(enrich({ text: '  ', html: null })).toBeNull();
   });
@@ -56,10 +63,29 @@ describe('bundle', () => {
     expect(() => argvFile('/opt/no\nde', '/x')).toThrow(/newline/);
   });
 
+  it('writes the hotkey for the launcher tap', () => {
+    expect(hotkeyFile(8, 0x60000)).toBe('8 393216\n');
+  });
+
   it('declares a background-only app bundle', () => {
     const p = infoPlist('0.1.0');
     expect(p).toContain('<string>dev.mdclip.listener</string>');
     expect(p).toContain('<key>LSUIElement</key>');
     expect(p).toContain('<string>0.1.0</string>');
+  });
+});
+
+describe('keycodes', () => {
+  it('maps keys to macOS virtual keycodes', () => {
+    expect(keycodeFor('c')).toBe(8);
+    expect(keycodeFor('V')).toBe(9);
+    expect(keycodeFor('f5')).toBe(96);
+    expect(() => keycodeFor('enter')).toThrow(/Unsupported key/);
+  });
+
+  it('builds the CGEventFlags mask', () => {
+    expect(flagMask(parseHotkey('ctrl+shift+c'))).toBe(0x40000 | 0x20000);
+    expect(flagMask(parseHotkey('cmd+alt+m'))).toBe(0x100000 | 0x80000);
+    expect(flagMask(parseHotkey('shift+f1'))).toBe(0x20000);
   });
 });

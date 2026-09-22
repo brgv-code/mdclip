@@ -33,10 +33,6 @@ importers:
       vitest:
         specifier: ^3.2.0
         version: 3.2.7(@types/node@24.13.6)
-    optionalDependencies:
-      uiohook-napi:
-        specifier: ^1.5.5
-        version: 1.5.5
 
 packages:
 
@@ -528,10 +524,6 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
-  node-gyp-build@4.8.4:
-    resolution: {integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==}
-    hasBin: true
-
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
 
@@ -604,10 +596,6 @@ packages:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
     hasBin: true
-
-  uiohook-napi@1.5.5:
-    resolution: {integrity: sha512-oSlTdnECw2GBfsJPTbBQBeE4v/EXP0EZmX6BJq5nzH/JgFaBE8JpFwEA/kLhiEP7HxQw28FViWiYgdIZzWuuJQ==}
-    engines: {node: '>= 16'}
 
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
@@ -1022,9 +1010,6 @@ snapshots:
 
   nanoid@3.3.19: {}
 
-  node-gyp-build@4.8.4:
-    optional: true
-
   pathe@2.0.3: {}
 
   pathval@2.0.1: {}
@@ -1105,11 +1090,6 @@ snapshots:
       '@mixmark-io/domino': 2.2.0
 
   typescript@5.9.3: {}
-
-  uiohook-napi@1.5.5:
-    dependencies:
-      node-gyp-build: 4.8.4
-    optional: true
 
   undici-types@7.18.2: {}
 

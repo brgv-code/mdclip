@@ -43,6 +43,8 @@ This registers a small background listener that starts at login. Press **Ctrl+Sh
 - plain text only (Claude, ChatGPT, a terminal, Obsidian) → treated as markdown, HTML and RTF are added
 - rich text (Notion, Linear, a web page, Docs) → a markdown version becomes the plain-text flavor
 
+Tables copied out of a terminal are repaired on the way: Claude Code, `bat` and friends draw them with box-drawing characters rather than markdown, and mdclip turns that art back into a GFM table before converting. Wrapped cells (a table wider than your terminal) cannot be recovered.
+
 Then paste with a normal Cmd+V anywhere. Motion and Docs pick the HTML, Obsidian and the terminal pick the markdown. No paste hotkey, no direction to think about. Pressing the hotkey with nothing selected converts whatever is already on the clipboard, so "Cmd+C, then Ctrl+Shift+C" works too.
 
 First run: macOS asks for **Accessibility** access for `node` (the listener needs it to see the hotkey and to send Cmd+C). Allow it in System Settings > Privacy & Security > Accessibility; the listener waits and starts by itself. If the hotkey still does nothing, `mdclip service restart`.
@@ -58,7 +60,9 @@ Change the hotkey or turn notifications off in `~/.config/mdclip/config.json`:
 { "hotkey": "ctrl+shift+c", "notify": true }
 ```
 
-Why Ctrl+Shift+C and not Cmd+Shift+C: the listener sees keystrokes but cannot swallow them, so whatever you pick also reaches the app. Cmd+Shift+C is "inspect element" in Chrome, which is where most LLM copying happens. Ctrl+Shift+C is bound by almost nothing on macOS. Pick another if it clashes for you.
+The hotkey is swallowed: the app in front never sees it, so it cannot collide with a shortcut there. Ctrl+Shift+C is the default because it is bound by almost nothing on macOS; Cmd+Shift+C would shadow "inspect element" in Chrome, which is where most LLM copying happens.
+
+After an upgrade that changes the bundled launcher, macOS treats it as a new app and asks for Accessibility again. Remove the stale "mdclip" entry in Privacy & Security before allowing the new one.
 
 Cost: one Node process, ~60 MB, idle until you press the key. Linux and Windows: the service is not available yet, the CLI is.
 
@@ -108,6 +112,7 @@ Two things to know for launchers:
 
 - Markdown to HTML: [marked](https://github.com/markedjs/marked) with GFM (tables, task lists, strikethrough, fenced code).
 - HTML to markdown: [turndown](https://github.com/mixmark-io/turndown) with the GFM plugin, tuned for atx headings, fenced code and two-space list nesting.
+- Hotkey, macOS: a `CGEventTap` in the bundle's own executable (`native/launcher.c`). It has to live there because the Accessibility grant follows the app bundle, not a child process, and because libuiohook does not deliver modifier events on recent macOS, which makes its `ctrlKey`/`shiftKey` flags useless.
 - Clipboard, macOS: a JXA script drives `NSPasteboard` directly (`public.utf8-plain-text`, `public.html`, `public.rtf`), so no native module and no compile step. RTF is produced by the system `textutil`.
 - Clipboard, Linux: CopyQ if present (the only common tool that writes several MIME types at once), else `wl-clipboard` or `xclip`, which can only serve one type, so HTML wins when both exist.
 - Clipboard, Windows: PowerShell with a `DataObject` carrying UnicodeText and a CF_HTML envelope.

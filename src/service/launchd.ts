@@ -3,6 +3,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { run } from '../clipboard/exec.js';
 import { buildBundle, removeBundle } from './bundle.js';
+import { loadConfig, parseHotkey } from './config.js';
+import { flagMask, keycodeFor } from './keycodes.js';
 
 export const LABEL = 'dev.mdclip.listen';
 const PLIST = join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
@@ -57,7 +59,11 @@ export async function install(cliPath: string, version: string): Promise<void> {
       await new Promise((r) => setTimeout(r, 100));
     }
   }
-  const program = await buildBundle(process.execPath, cliPath, version);
+  const hotkey = parseHotkey(loadConfig().hotkey);
+  const program = await buildBundle(process.execPath, cliPath, version, {
+    keycode: keycodeFor(hotkey.key),
+    mask: flagMask(hotkey),
+  });
   writeFileSync(PLIST, plist(program));
   const res = await launchctl('bootstrap', domain(), PLIST);
   if (res.code !== 0) throw new Error(`launchctl bootstrap failed: ${res.stderr.trim() || res.stdout.trim()}`);

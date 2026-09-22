@@ -44,6 +44,11 @@ export function infoPlist(version: string): string {
 `;
 }
 
+/** "<virtual-keycode> <flag-mask>", read by the launcher's event tap. */
+export function hotkeyFile(keycode: number, mask: number): string {
+  return `${keycode} ${mask}\n`;
+}
+
 /** One argument per line, read by the launcher. */
 export function argvFile(nodePath: string, cliPath: string): string {
   for (const p of [nodePath, cliPath]) {
@@ -57,13 +62,19 @@ async function must(cmd: string, args: string[]): Promise<void> {
   if (res.code !== 0) throw new Error(`${cmd} ${args.join(' ')} failed: ${res.stderr.trim() || res.stdout.trim()}`);
 }
 
-export async function buildBundle(nodePath: string, cliPath: string, version: string): Promise<string> {
+export async function buildBundle(
+  nodePath: string,
+  cliPath: string,
+  version: string,
+  hotkey: { keycode: number; mask: number },
+): Promise<string> {
   if (!existsSync(LAUNCHER)) throw new Error(`Launcher binary missing at ${LAUNCHER}. Reinstall mdclip.`);
   if (existsSync(APP)) rmSync(APP, { recursive: true, force: true });
   mkdirSync(join(APP, 'Contents', 'MacOS'), { recursive: true });
   mkdirSync(join(APP, 'Contents', 'Resources'), { recursive: true });
   writeFileSync(join(APP, 'Contents', 'Info.plist'), infoPlist(version));
   writeFileSync(join(APP, 'Contents', 'Resources', 'argv'), argvFile(nodePath, cliPath));
+  writeFileSync(join(APP, 'Contents', 'Resources', 'hotkey'), hotkeyFile(hotkey.keycode, hotkey.mask));
   copyFileSync(LAUNCHER, APP_EXECUTABLE);
   chmodSync(APP_EXECUTABLE, 0o755);
   // Ad-hoc signature: TCC identifies the bundle by it. Re-signing on every install means a
