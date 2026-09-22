@@ -26,6 +26,8 @@
   },
   "files": [
     "dist",
+    "native/mdclip-launcher",
+    "native/launcher.c",
     "README.md",
     "LICENSE"
   ],

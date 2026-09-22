@@ -1,27 +1,55 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { run } from '../clipboard/exec.js';
 
-// macOS only lists app bundles in Privacy & Security, not bare binaries. A tiny AppleScript applet
-// (built with osacompile, no compiler needed) runs node as its child, so the Accessibility entry is
-// "mdclip" and children like node and osascript inherit the grant.
+// macOS lists app bundles in Privacy & Security, not bare binaries, and attributes a bundle's
+// grant to its child processes. The prebuilt launcher (native/launcher.c) is the bundle's main
+// executable; it spawns node as a child, so the Accessibility entry is "mdclip".
 
 export const APP_DIR = join(homedir(), 'Library', 'Application Support', 'mdclip');
 export const APP = join(APP_DIR, 'mdclip.app');
-export const APP_EXECUTABLE = join(APP, 'Contents', 'MacOS', 'applet');
-const BUNDLE_ID = 'dev.mdclip.listener';
+export const APP_EXECUTABLE = join(APP, 'Contents', 'MacOS', 'mdclip');
+export const BUNDLE_ID = 'dev.mdclip.listener';
+const LAUNCHER = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'native', 'mdclip-launcher');
 
-const asString = (s: string) => `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+const escapeXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export function appleScript(nodePath: string, cliPath: string, logPath: string): string {
-  // do shell script swallows the child's output, so redirect it to the log ourselves.
-  // try/end try: a crashed child must not pop an applet error dialog; launchd restarts us instead.
-  const cmd = `"exec " & quoted form of ${asString(nodePath)} & " " & quoted form of ${asString(cliPath)} & " listen >> " & quoted form of ${asString(logPath)} & " 2>&1"`;
-  return `try
-  do shell script ${cmd}
-end try
+export function infoPlist(version: string): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>mdclip</string>
+  <key>CFBundleIdentifier</key>
+  <string>${BUNDLE_ID}</string>
+  <key>CFBundleName</key>
+  <string>mdclip</string>
+  <key>CFBundleDisplayName</key>
+  <string>mdclip</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>${escapeXml(version)}</string>
+  <key>CFBundleVersion</key>
+  <string>${escapeXml(version)}</string>
+  <key>LSUIElement</key>
+  <true/>
+  <key>LSMinimumSystemVersion</key>
+  <string>12.0</string>
+</dict>
+</plist>
 `;
+}
+
+/** One argument per line, read by the launcher. */
+export function argvFile(nodePath: string, cliPath: string): string {
+  for (const p of [nodePath, cliPath]) {
+    if (p.includes('\n')) throw new Error(`Path contains a newline: ${p}`);
+  }
+  return `${nodePath}\n${cliPath}\nlisten\n`;
 }
 
 async function must(cmd: string, args: string[]): Promise<void> {
@@ -29,22 +57,17 @@ async function must(cmd: string, args: string[]): Promise<void> {
   if (res.code !== 0) throw new Error(`${cmd} ${args.join(' ')} failed: ${res.stderr.trim() || res.stdout.trim()}`);
 }
 
-export async function buildBundle(nodePath: string, cliPath: string, logPath: string): Promise<string> {
-  mkdirSync(APP_DIR, { recursive: true });
-  const script = join(APP_DIR, 'listener.applescript');
-  writeFileSync(script, appleScript(nodePath, cliPath, logPath));
+export async function buildBundle(nodePath: string, cliPath: string, version: string): Promise<string> {
+  if (!existsSync(LAUNCHER)) throw new Error(`Launcher binary missing at ${LAUNCHER}. Reinstall mdclip.`);
   if (existsSync(APP)) rmSync(APP, { recursive: true, force: true });
-  await must('osacompile', ['-o', APP, script]);
-  const info = join(APP, 'Contents', 'Info.plist');
-  const set = (key: string, type: string, value: string) =>
-    run('/usr/libexec/PlistBuddy', ['-c', `Delete :${key}`, info]).then(() =>
-      must('/usr/libexec/PlistBuddy', ['-c', `Add :${key} ${type} ${value}`, info]),
-    );
-  await set('CFBundleIdentifier', 'string', BUNDLE_ID);
-  await set('CFBundleName', 'string', 'mdclip');
-  await set('CFBundleDisplayName', 'string', 'mdclip');
-  await set('LSUIElement', 'bool', 'true');
-  // Ad-hoc signature: enough for TCC to identify the bundle stably.
+  mkdirSync(join(APP, 'Contents', 'MacOS'), { recursive: true });
+  mkdirSync(join(APP, 'Contents', 'Resources'), { recursive: true });
+  writeFileSync(join(APP, 'Contents', 'Info.plist'), infoPlist(version));
+  writeFileSync(join(APP, 'Contents', 'Resources', 'argv'), argvFile(nodePath, cliPath));
+  copyFileSync(LAUNCHER, APP_EXECUTABLE);
+  chmodSync(APP_EXECUTABLE, 0o755);
+  // Ad-hoc signature: TCC identifies the bundle by it. Re-signing on every install means a
+  // re-grant after upgrades; a Developer ID signature would make it stable.
   await must('codesign', ['--force', '--deep', '--sign', '-', APP]);
   return APP_EXECUTABLE;
 }

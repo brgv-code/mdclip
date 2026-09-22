@@ -98,7 +98,7 @@ async function service(action: string | null): Promise<void> {
   const cliPath = new URL(import.meta.url).pathname;
   switch (action) {
     case 'install': {
-      await launchd.install(cliPath);
+      await launchd.install(cliPath, version);
       const config = loadConfig();
       process.stderr.write(
         `Installed. Press ${config.hotkey} instead of Cmd+C to copy with every flavor.\n` +

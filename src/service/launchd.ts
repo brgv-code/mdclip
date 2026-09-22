@@ -46,7 +46,7 @@ async function launchctl(...args: string[]) {
   return run('launchctl', args);
 }
 
-export async function install(cliPath: string): Promise<void> {
+export async function install(cliPath: string, version: string): Promise<void> {
   if (process.platform !== 'darwin') throw new Error('mdclip service is macOS only for now.');
   mkdirSync(join(homedir(), 'Library', 'LaunchAgents'), { recursive: true });
   mkdirSync(join(homedir(), 'Library', 'Logs'), { recursive: true });
@@ -57,7 +57,7 @@ export async function install(cliPath: string): Promise<void> {
       await new Promise((r) => setTimeout(r, 100));
     }
   }
-  const program = await buildBundle(process.execPath, cliPath, LOG);
+  const program = await buildBundle(process.execPath, cliPath, version);
   writeFileSync(PLIST, plist(program));
   const res = await launchctl('bootstrap', domain(), PLIST);
   if (res.code !== 0) throw new Error(`launchctl bootstrap failed: ${res.stderr.trim() || res.stdout.trim()}`);

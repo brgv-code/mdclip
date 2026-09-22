@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appleScript } from '../src/service/bundle.js';
+import { argvFile, infoPlist } from '../src/service/bundle.js';
 import { formatHotkey, parseHotkey } from '../src/service/config.js';
 import { plist } from '../src/service/launchd.js';
 import { enrich } from '../src/service/smart-copy.js';
@@ -50,12 +50,16 @@ describe('plist', () => {
   });
 });
 
-describe('appleScript', () => {
-  it('execs node with the cli in listen mode, quoting both paths', () => {
-    const s = appleScript('/opt/node', '/Users/x/it"s/cli.js', '/Users/x/Library/Logs/mdclip.log');
-    expect(s).toContain(
-      'do shell script "exec " & quoted form of "/opt/node" & " " & quoted form of "/Users/x/it\\"s/cli.js" & " listen >> " & quoted form of "/Users/x/Library/Logs/mdclip.log" & " 2>&1"',
-    );
-    expect(s).toMatch(/^try\n[\s\S]*end try\n$/);
+describe('bundle', () => {
+  it('writes one argument per line for the launcher', () => {
+    expect(argvFile('/opt/node', '/Users/x/cli.js')).toBe('/opt/node\n/Users/x/cli.js\nlisten\n');
+    expect(() => argvFile('/opt/no\nde', '/x')).toThrow(/newline/);
+  });
+
+  it('declares a background-only app bundle', () => {
+    const p = infoPlist('0.1.0');
+    expect(p).toContain('<string>dev.mdclip.listener</string>');
+    expect(p).toContain('<key>LSUIElement</key>');
+    expect(p).toContain('<string>0.1.0</string>');
   });
 });
