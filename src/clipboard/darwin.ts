@@ -78,6 +78,10 @@ export async function accessibilityTrusted(prompt: boolean): Promise<boolean> {
   return (await run('osascript', ['-l', 'JavaScript', '-e', script])).stdout.trim() === 'true';
 }
 
+export async function playSound(name: string): Promise<void> {
+  await run('afplay', [`/System/Library/Sounds/${name}.aiff`]);
+}
+
 async function keystroke(key: string): Promise<void> {
   const res = await run('osascript', [
     '-e',

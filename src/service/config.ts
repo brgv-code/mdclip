@@ -5,12 +5,14 @@ import { join } from 'node:path';
 export interface Config {
   hotkey: string;
   notify: boolean;
+  /** A sound always plays; notifications are posted by osascript and some systems suppress those. */
+  sound: string | false;
 }
 
 export const CONFIG_PATH = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'mdclip', 'config.json');
 
 // Ctrl+Shift+C by default: the hook cannot swallow keystrokes, and Cmd+Shift+C is Chrome's "inspect element".
-export const DEFAULT_CONFIG: Config = { hotkey: 'ctrl+shift+c', notify: true };
+export const DEFAULT_CONFIG: Config = { hotkey: 'ctrl+shift+c', notify: true, sound: 'Tink' };
 
 export function loadConfig(): Config {
   if (!existsSync(CONFIG_PATH)) return DEFAULT_CONFIG;

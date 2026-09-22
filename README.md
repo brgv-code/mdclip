@@ -57,8 +57,10 @@ mdclip listen              # same thing in the foreground, to try it out
 Change the hotkey or turn notifications off in `~/.config/mdclip/config.json`:
 
 ```json
-{ "hotkey": "ctrl+shift+c", "notify": true }
+{ "hotkey": "ctrl+shift+c", "notify": true, "sound": "Tink" }
 ```
+
+`sound` is any name from `/System/Library/Sounds`, or `false` for silence. It exists because notifications are posted through `osascript`, so macOS attributes them to Script Editor and drops them when that app's notifications are off; the sound always plays.
 
 The hotkey is swallowed: the app in front never sees it, so it cannot collide with a shortcut there. Ctrl+Shift+C is the default because it is bound by almost nothing on macOS; Cmd+Shift+C would shadow "inspect element" in Chrome, which is where most LLM copying happens.
 

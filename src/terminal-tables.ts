@@ -1,20 +1,37 @@
 // A terminal that renders markdown destroys it: Claude Code, bat and friends draw tables with
-// box-drawing characters, so the clipboard holds art, not syntax. Turn that art back into a
-// markdown table before anything else looks at the text.
+// box-drawing characters, so the clipboard holds art, not syntax. Worse, a renderer wraps long
+// cell text onto extra lines inside the box, so one logical row can span several lines.
+// Turn that art back into a markdown table before anything else looks at the text.
 
-const VERTICAL = /[│┃║]/; // │ ┃ ║
-const BORDER_ONLY = /^[\s─-╿\-+=]+$/; // a rule made of box-drawing pieces
-const HEADING_RULE = /^[\s─━═=-]+$/; // the header separator inside a table
+const VERTICAL = /[│┃║|]/; // │ ┃ ║ |
+const BOX = /[─-╿]/; // any box-drawing character
+const RULE_ONLY = /^[\s─-╿+=-]+$/; // a horizontal rule made of box pieces
 
-const isBorder = (line: string) => BORDER_ONLY.test(line) && line.trim().length > 0;
-const hasCells = (line: string) => VERTICAL.test(line);
+const isRule = (line: string) => RULE_ONLY.test(line) && BOX.test(line);
+const isRow = (line: string) => VERTICAL.test(line) && BOX.test(line);
 
 function cellsOf(line: string): string[] {
   return line
-    .replace(/^\s*[│┃║]/, '')
-    .replace(/[│┃║]\s*$/, '')
+    .trim()
+    .replace(/^[│┃║|]/, '')
+    .replace(/[│┃║|]$/, '')
     .split(VERTICAL)
     .map((c) => c.trim());
+}
+
+/** Cell text wrapped over several lines: "in the" + "worker" -> "in the worker". */
+function joinGroup(group: string[][]): string[] {
+  const width = Math.max(...group.map((r) => r.length));
+  const row: string[] = [];
+  for (let i = 0; i < width; i++) {
+    row.push(
+      group
+        .map((line) => line[i] ?? '')
+        .filter((c) => c.length > 0)
+        .join(' '),
+    );
+  }
+  return row;
 }
 
 function toMarkdown(rows: string[][]): string[] {
@@ -27,36 +44,51 @@ function toMarkdown(rows: string[][]): string[] {
   return out;
 }
 
+function renderBlock(block: string[]): string[] {
+  const groups: string[][][] = [];
+  let current: string[][] = [];
+  for (const line of block) {
+    if (isRule(line)) {
+      if (current.length) groups.push(current);
+      current = [];
+      continue;
+    }
+    const cells = cellsOf(line);
+    if (cells.some((c) => c.length > 0)) current.push(cells);
+  }
+  if (current.length) groups.push(current);
+  if (!groups.length) return [];
+
+  // With a rule between every row, each group is one logical row and wrapped lines belong together.
+  // With only a header rule, there is nothing to group by, so every line is its own row.
+  const rows = groups.length > 2 ? groups.map(joinGroup) : groups.flat();
+  return toMarkdown(rows);
+}
+
 /** Rewrite box-drawn tables as GFM tables. Text without them comes back untouched. */
 export function repairBoxTables(text: string): string {
   const lines = text.split('\n');
   const out: string[] = [];
-  let rows: string[][] = [];
+  let block: string[] = [];
 
   const flush = () => {
-    if (rows.length) out.push(...toMarkdown(rows));
-    rows = [];
+    if (block.length) out.push(...renderBlock(block));
+    block = [];
   };
 
   for (const line of lines) {
-    if (hasCells(line)) {
-      const cells = cellsOf(line);
-      // The ---- row inside a box table is a separator, not data.
-      if (cells.some((c) => c.length > 0) && !cells.every((c) => c === '' || HEADING_RULE.test(c))) {
-        rows.push(cells);
-      }
+    if (isRow(line) || (isRule(line) && block.length > 0)) {
+      block.push(line);
       continue;
     }
-    if (isBorder(line) && (rows.length > 0 || isTableStart(lines, line))) continue;
+    // A rule only starts a table when a row follows it.
+    if (isRule(line)) {
+      block.push(line);
+      continue;
+    }
     flush();
     out.push(line);
   }
   flush();
   return out.join('\n');
-}
-
-// A border line only belongs to a table if a cell row follows it.
-function isTableStart(lines: string[], border: string): boolean {
-  const i = lines.indexOf(border);
-  return i >= 0 && lines.slice(i + 1, i + 3).some(hasCells);
 }

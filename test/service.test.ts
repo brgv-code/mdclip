@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { argvFile, hotkeyFile, infoPlist } from '../src/service/bundle.js';
-import { formatHotkey, parseHotkey } from '../src/service/config.js';
+import { DEFAULT_CONFIG, formatHotkey, parseHotkey } from '../src/service/config.js';
 import { flagMask, keycodeFor } from '../src/service/keycodes.js';
 import { plist } from '../src/service/launchd.js';
 import { enrich } from '../src/service/smart-copy.js';
@@ -72,6 +72,12 @@ describe('bundle', () => {
     expect(p).toContain('<string>dev.mdclip.listener</string>');
     expect(p).toContain('<key>LSUIElement</key>');
     expect(p).toContain('<string>0.1.0</string>');
+  });
+});
+
+describe('defaults', () => {
+  it('ships a swallowable hotkey and audible feedback', () => {
+    expect(DEFAULT_CONFIG).toEqual({ hotkey: 'ctrl+shift+c', notify: true, sound: 'Tink' });
   });
 });
 

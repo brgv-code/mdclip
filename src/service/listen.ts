@@ -3,7 +3,7 @@ import { appendFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { accessibilityTrusted, darwin, htmlToRtf } from '../clipboard/darwin.js';
+import { accessibilityTrusted, darwin, htmlToRtf, playSound } from '../clipboard/darwin.js';
 import { type Config, formatHotkey, loadConfig, parseHotkey } from './config.js';
 import { flagMask, keycodeFor } from './keycodes.js';
 import { enrich } from './smart-copy.js';
@@ -40,6 +40,7 @@ export async function smartCopy(config: Config): Promise<void> {
 
   const summary = direction === 'md-to-rich' ? 'Markdown copied as rich text' : 'Rich text copied as markdown';
   log(`${summary} (${(content.text ?? '').length} chars)`);
+  if (config.sound) await playSound(config.sound);
   if (config.notify) await darwin.notify('mdclip', summary);
 }
 
