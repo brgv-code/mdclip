@@ -42,7 +42,15 @@ export async function htmlToRtf(html: string): Promise<string | null> {
   return res.code === 0 && res.stdout ? res.stdout : null;
 }
 
-export const darwin: ClipboardAdapter = {
+const COUNT_SCRIPT = `
+ObjC.import('AppKit');
+function run() { return String($.NSPasteboard.generalPasteboard.changeCount); }`;
+
+export const darwin: ClipboardAdapter & {
+  changeCount(): Promise<number>;
+  copy(): Promise<void>;
+  notify(title: string, body: string): Promise<void>;
+} = {
   async read(): Promise<ClipboardContent> {
     return JSON.parse(await jxa(READ_SCRIPT)) as ClipboardContent;
   },
@@ -50,9 +58,34 @@ export const darwin: ClipboardAdapter = {
     await jxa(WRITE_SCRIPT, JSON.stringify(content));
   },
   async paste(): Promise<void> {
-    const res = await run('osascript', ['-e', 'tell application "System Events" to keystroke "v" using command down']);
-    if (res.code !== 0) {
-      throw new Error(`Could not send Cmd+V. Grant Accessibility access to your terminal. ${res.stderr.trim()}`);
-    }
+    await keystroke('v');
+  },
+  async copy(): Promise<void> {
+    await keystroke('c');
+  },
+  async changeCount(): Promise<number> {
+    return Number(await jxa(COUNT_SCRIPT));
+  },
+  async notify(title: string, body: string): Promise<void> {
+    const q = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    await run('osascript', ['-e', `display notification "${q(body)}" with title "${q(title)}"`]);
   },
 };
+
+/** Accessibility permission for the responsible process. `prompt` opens the System Settings dialog. */
+export async function accessibilityTrusted(prompt: boolean): Promise<boolean> {
+  const script = `ObjC.import('ApplicationServices'); $.AXIsProcessTrustedWithOptions($({ AXTrustedCheckOptionPrompt: ${prompt} }))`;
+  return (await run('osascript', ['-l', 'JavaScript', '-e', script])).stdout.trim() === 'true';
+}
+
+async function keystroke(key: string): Promise<void> {
+  const res = await run('osascript', [
+    '-e',
+    `tell application "System Events" to keystroke "${key}" using command down`,
+  ]);
+  if (res.code !== 0) {
+    throw new Error(
+      `Could not send Cmd+${key.toUpperCase()}. Grant Accessibility access to the process. ${res.stderr.trim()}`,
+    );
+  }
+}

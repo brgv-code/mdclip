@@ -7,6 +7,12 @@ You copy an answer from an LLM, a file from the terminal, or a note from Obsidia
 The clipboard holds several flavors at once (`text/plain`, `text/html`, `text/rtf`). Markdown sources only write the plain one. `mdclip` writes all of them, so every app picks the flavor it understands.
 
 ```
+mdclip service install   # macOS: from now on press Ctrl+Shift+C instead of Cmd+C. That's it.
+```
+
+Or as a one-off command:
+
+```
 pbpaste | mdclip       # what you just copied, now pastes as rich text everywhere
 mdclip md              # copied rich text, now pastes as markdown
 ```
@@ -25,6 +31,36 @@ brew install brgv-code/tap/mdclip
 ```
 
 Requires Node 18+. Tested on macOS. Linux and Windows adapters are implemented but marked experimental, see [Platform support](#platform-support).
+
+## Smart copy (macOS)
+
+```bash
+mdclip service install
+```
+
+This registers a small background listener that starts at login. Press **Ctrl+Shift+C** instead of Cmd+C. It copies the selection, looks at what landed on the clipboard, and fills in what is missing:
+
+- plain text only (Claude, ChatGPT, a terminal, Obsidian) → treated as markdown, HTML and RTF are added
+- rich text (Notion, Linear, a web page, Docs) → a markdown version becomes the plain-text flavor
+
+Then paste with a normal Cmd+V anywhere. Motion and Docs pick the HTML, Obsidian and the terminal pick the markdown. No paste hotkey, no direction to think about. Pressing the hotkey with nothing selected converts whatever is already on the clipboard, so "Cmd+C, then Ctrl+Shift+C" works too.
+
+First run: macOS asks for **Accessibility** access for `node` (the listener needs it to see the hotkey and to send Cmd+C). Allow it in System Settings > Privacy & Security > Accessibility; the listener waits and starts by itself. If the hotkey still does nothing, `mdclip service restart`.
+
+```
+mdclip service status | restart | uninstall | log
+mdclip listen              # same thing in the foreground, to try it out
+```
+
+Change the hotkey or turn notifications off in `~/.config/mdclip/config.json`:
+
+```json
+{ "hotkey": "ctrl+shift+c", "notify": true }
+```
+
+Why Ctrl+Shift+C and not Cmd+Shift+C: the listener sees keystrokes but cannot swallow them, so whatever you pick also reaches the app. Cmd+Shift+C is "inspect element" in Chrome, which is where most LLM copying happens. Ctrl+Shift+C is bound by almost nothing on macOS. Pick another if it clashes for you.
+
+Cost: one Node process, ~60 MB, idle until you press the key. Linux and Windows: the service is not available yet, the CLI is.
 
 ## Usage
 
@@ -53,9 +89,9 @@ Typical flows:
 
 Tip for Claude Code and other terminal LLMs: the terminal renders markdown, so selecting text in it loses the syntax. Have the answer written to a file and run `mdclip rich answer.md`.
 
-## Hotkeys
+## Hotkeys without the service
 
-The tool is most useful bound to a key, so the conversion happens as part of pasting.
+If you would rather not run a background process, bind the CLI to a key in a launcher you already have.
 
 **Raycast**: copy `scripts/raycast/*.sh` into your Raycast script commands folder. You get "Paste Markdown as Rich Text" and "Copy Rich Text as Markdown"; assign hotkeys in Raycast.
 
@@ -82,7 +118,7 @@ No pandoc, no daemon, nothing running in the background.
 
 | Platform | Read | Write flavors | Paste keystroke | Status |
 | --- | --- | --- | --- | --- |
-| macOS | text, html, rtf | text + html + rtf | System Events | tested, covered by CI |
+| macOS | text, html, rtf | text + html + rtf | System Events | tested, covered by CI; smart-copy service |
 | Linux | text, html | text + html (CopyQ) or one of them | xdotool / wtype | implemented, untested on a real display server |
 | Windows | text, html | text + html | SendKeys | implemented, untested |
 
@@ -98,7 +134,7 @@ pnpm lint         # biome
 node dist/cli.js --help
 ```
 
-Layout: `src/convert.ts` (pure conversion, tested), `src/clipboard/<platform>.ts` (one adapter per OS behind a tiny interface), `src/cli.ts` (argument handling and input detection).
+Layout: `src/convert.ts` (pure conversion, tested), `src/clipboard/<platform>.ts` (one adapter per OS behind a tiny interface), `src/cli.ts` (argument handling and input detection), `src/service/` (hotkey listener via `uiohook-napi`, smart-copy logic, launchd agent).
 
 Release: bump `version` in `package.json`, tag `vX.Y.Z`, push the tag. `publish.yml` publishes to npm with provenance via trusted publishing. Then update `url` and `sha256` in the Homebrew formula.
 

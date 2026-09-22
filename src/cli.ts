@@ -4,6 +4,8 @@ import { createRequire } from 'node:module';
 import { htmlToRtf } from './clipboard/darwin.js';
 import { clipboard } from './clipboard/index.js';
 import { htmlToMd, mdToHtml } from './convert.js';
+import { CONFIG_PATH, DEFAULT_CONFIG, loadConfig } from './service/config.js';
+import * as launchd from './service/launchd.js';
 
 const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
 
@@ -15,6 +17,12 @@ Usage
   mdclip md [file]       html on the clipboard -> markdown
 
 Input comes from the file argument, from a pipe, or from the clipboard.
+
+Always-on hotkey (macOS)
+  mdclip service install   start at login; press the hotkey instead of Cmd+C to copy with all flavors
+  mdclip service status | restart | uninstall | log
+  mdclip listen            run the hotkey listener in the foreground (for trying it out)
+  Default hotkey ctrl+shift+c, change it in ${CONFIG_PATH}
 
 Options
   -c, --clipboard   read the clipboard even when stdin is a pipe
@@ -31,7 +39,7 @@ Examples
 `;
 
 interface Options {
-  command: 'rich' | 'md';
+  command: 'rich' | 'md' | 'listen' | 'service';
   file: string | null;
   fromClipboard: boolean;
   stdout: boolean;
@@ -52,7 +60,7 @@ function parseArgs(argv: string[]): Options {
     else if (arg === '-o' || arg === '--stdout') opts.stdout = true;
     else if (arg === '--paste') opts.paste = true;
     else if (arg === '--no-rtf') opts.rtf = false;
-    else if (arg === 'rich' || arg === 'md') opts.command = arg;
+    else if (arg === 'rich' || arg === 'md' || arg === 'listen' || arg === 'service') opts.command = arg;
     else if (arg === '-' || !arg.startsWith('-')) opts.file = arg;
     else fail(`Unknown option: ${arg}\n\n${HELP}`);
   }
@@ -86,8 +94,48 @@ async function readInput(opts: Options): Promise<{ source: string; text: string 
   return { source: 'clipboard', text: content.text ?? null, html: content.html ?? null };
 }
 
+async function service(action: string | null): Promise<void> {
+  const cliPath = new URL(import.meta.url).pathname;
+  switch (action) {
+    case 'install': {
+      await launchd.install(cliPath);
+      const config = loadConfig();
+      process.stderr.write(
+        `Installed. Press ${config.hotkey} instead of Cmd+C to copy with every flavor.\n` +
+          `macOS will ask for Accessibility (and Input Monitoring) access for "node" the first time; allow it, then run: mdclip service restart\n` +
+          `Config: ${CONFIG_PATH} (default ${JSON.stringify(DEFAULT_CONFIG)})\nLog: ${launchd.LOG}\n`,
+      );
+      return;
+    }
+    case 'uninstall':
+      process.stderr.write((await launchd.uninstall()) ? 'Uninstalled.\n' : 'Not installed.\n');
+      return;
+    case 'restart':
+      await launchd.restart();
+      process.stderr.write('Restarted.\n');
+      return;
+    case 'status': {
+      const s = await launchd.status();
+      process.stdout.write(
+        s.installed ? `installed, ${s.running ? `running (pid ${s.pid})` : 'not running'}\n` : 'not installed\n',
+      );
+      return;
+    }
+    case 'log':
+      process.stdout.write(`${launchd.LOG}\n`);
+      return;
+    default:
+      fail('Usage: mdclip service <install|uninstall|restart|status|log>');
+  }
+}
+
 async function main(): Promise<void> {
   const opts = parseArgs(process.argv.slice(2));
+  if (opts.command === 'listen') {
+    const { listen } = await import('./service/listen.js');
+    return listen();
+  }
+  if (opts.command === 'service') return service(opts.file);
   const input = await readInput(opts);
   const cb = clipboard();
 
