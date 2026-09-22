@@ -1,0 +1,107 @@
+# mdclip
+
+Copy markdown as rich text, and rich text as markdown.
+
+You copy an answer from an LLM, a file from the terminal, or a note from Obsidian, paste it into Linear, Motion, Notion or Google Docs, and get literal `##` and `**` instead of headings and bold. Or the other way round: you copy from a rich editor and want plain markdown.
+
+The clipboard holds several flavors at once (`text/plain`, `text/html`, `text/rtf`). Markdown sources only write the plain one. `mdclip` writes all of them, so every app picks the flavor it understands.
+
+```
+pbpaste | mdclip       # what you just copied, now pastes as rich text everywhere
+mdclip md              # copied rich text, now pastes as markdown
+```
+
+## Install
+
+```bash
+npm install -g mdclip        # or: pnpm add -g mdclip
+npx mdclip --help            # no install
+```
+
+Homebrew (macOS, includes node):
+
+```bash
+brew install brgv-code/tap/mdclip
+```
+
+Requires Node 18+. Tested on macOS. Linux and Windows adapters are implemented but marked experimental, see [Platform support](#platform-support).
+
+## Usage
+
+```
+mdclip [rich] [file]   markdown -> clipboard as text + html + rtf  (default)
+mdclip md [file]       html on the clipboard -> markdown
+
+Input comes from the file argument, from a pipe, or from the clipboard.
+
+Options
+  -c, --clipboard   read the clipboard even when stdin is a pipe
+  -o, --stdout      print the converted result instead of writing the clipboard
+  --paste           send the paste keystroke after writing (macOS: needs Accessibility access)
+  --no-rtf          skip the RTF flavor (macOS)
+```
+
+Typical flows:
+
+| You want to | Run |
+| --- | --- |
+| Paste an LLM answer into Linear / Motion / Docs | copy it, then `mdclip`, then paste |
+| Paste a markdown file as rich text | `mdclip rich notes.md`, then paste |
+| Turn a Notion / Linear / web selection into markdown | copy it, then `mdclip md`, then paste into Obsidian or a `.md` file |
+| Save copied rich text straight to a file | `mdclip md -o > page.md` |
+| Preview the HTML that will be written | `mdclip -o` |
+
+Tip for Claude Code and other terminal LLMs: the terminal renders markdown, so selecting text in it loses the syntax. Have the answer written to a file and run `mdclip rich answer.md`.
+
+## Hotkeys
+
+The tool is most useful bound to a key, so the conversion happens as part of pasting.
+
+**Raycast**: copy `scripts/raycast/*.sh` into your Raycast script commands folder. You get "Paste Markdown as Rich Text" and "Copy Rich Text as Markdown"; assign hotkeys in Raycast.
+
+**Hammerspoon**: copy `scripts/hammerspoon/mdclip.lua` to `~/.hammerspoon/` and add `require("mdclip")` to `init.lua`. Cmd+Shift+V pastes markdown as rich text, Cmd+Shift+M converts rich text to markdown.
+
+**Anything else** (Keyboard Maestro, BetterTouchTool, Alfred, Karabiner): run `mdclip rich --paste` on a key.
+
+Two things to know for launchers:
+
+- `--paste` sends Cmd+V through System Events, which needs Accessibility access for the launcher (System Settings > Privacy & Security > Accessibility).
+- GUI launchers do not see your shell `PATH`. If node comes from nvm/fnm/volta, add its bin directory to the `PATH` line in the script, or install via Homebrew, which bundles node.
+
+## How it works
+
+- Markdown to HTML: [marked](https://github.com/markedjs/marked) with GFM (tables, task lists, strikethrough, fenced code).
+- HTML to markdown: [turndown](https://github.com/mixmark-io/turndown) with the GFM plugin, tuned for atx headings, fenced code and two-space list nesting.
+- Clipboard, macOS: a JXA script drives `NSPasteboard` directly (`public.utf8-plain-text`, `public.html`, `public.rtf`), so no native module and no compile step. RTF is produced by the system `textutil`.
+- Clipboard, Linux: CopyQ if present (the only common tool that writes several MIME types at once), else `wl-clipboard` or `xclip`, which can only serve one type, so HTML wins when both exist.
+- Clipboard, Windows: PowerShell with a `DataObject` carrying UnicodeText and a CF_HTML envelope.
+
+No pandoc, no daemon, nothing running in the background.
+
+## Platform support
+
+| Platform | Read | Write flavors | Paste keystroke | Status |
+| --- | --- | --- | --- | --- |
+| macOS | text, html, rtf | text + html + rtf | System Events | tested, covered by CI |
+| Linux | text, html | text + html (CopyQ) or one of them | xdotool / wtype | implemented, untested on a real display server |
+| Windows | text, html | text + html | SendKeys | implemented, untested |
+
+If you run Linux or Windows and can confirm or fix the adapter, a PR with what you saw is very welcome.
+
+## Development
+
+```bash
+pnpm install
+pnpm build        # tsc -> dist/
+pnpm test         # vitest; the macOS clipboard test touches your real clipboard
+pnpm lint         # biome
+node dist/cli.js --help
+```
+
+Layout: `src/convert.ts` (pure conversion, tested), `src/clipboard/<platform>.ts` (one adapter per OS behind a tiny interface), `src/cli.ts` (argument handling and input detection).
+
+Release: bump `version` in `package.json`, tag `vX.Y.Z`, push the tag. `publish.yml` publishes to npm with provenance via trusted publishing. Then update `url` and `sha256` in the Homebrew formula.
+
+## License
+
+MIT

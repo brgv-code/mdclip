@@ -1,0 +1,59 @@
+{
+  "name": "mdclip",
+  "version": "0.1.0",
+  "description": "Copy markdown as rich text (and rich text as markdown). Fixes pasting between LLMs, terminals, Obsidian, Linear, Notion, Motion, Docs.",
+  "keywords": [
+    "markdown",
+    "clipboard",
+    "rich-text",
+    "html",
+    "rtf",
+    "paste",
+    "cli",
+    "linear",
+    "notion",
+    "obsidian"
+  ],
+  "license": "MIT",
+  "author": "Bhargav Babu",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/brgv-code/mdclip"
+  },
+  "type": "module",
+  "bin": {
+    "mdclip": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "lint": "biome check --write .",
+    "prepublishOnly": "pnpm build && pnpm test"
+  },
+  "dependencies": {
+    "marked": "^16.0.0",
+    "turndown": "^7.2.0",
+    "turndown-plugin-gfm": "^1.0.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "@types/node": "^24.0.0",
+    "@types/turndown": "^5.0.5",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  }
+}
