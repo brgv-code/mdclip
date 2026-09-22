@@ -25,8 +25,6 @@ ${args}
   <dict>
     <key>PATH</key>
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
-    <key>MDCLIP_LOG</key>
-    <string>${escapeXml(LOG)}</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
@@ -51,7 +49,13 @@ export async function install(cliPath: string): Promise<void> {
   if (process.platform !== 'darwin') throw new Error('mdclip service is macOS only for now.');
   mkdirSync(join(homedir(), 'Library', 'LaunchAgents'), { recursive: true });
   mkdirSync(join(homedir(), 'Library', 'Logs'), { recursive: true });
-  if (existsSync(PLIST)) await launchctl('bootout', `${domain()}/${LABEL}`);
+  if (existsSync(PLIST)) {
+    await launchctl('bootout', `${domain()}/${LABEL}`);
+    // bootout returns before the job is gone; bootstrap fails if it is still loaded.
+    for (let i = 0; i < 20 && (await launchctl('print', `${domain()}/${LABEL}`)).code === 0; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
   writeFileSync(PLIST, plist(process.execPath, cliPath));
   const res = await launchctl('bootstrap', domain(), PLIST);
   if (res.code !== 0) throw new Error(`launchctl bootstrap failed: ${res.stderr.trim() || res.stdout.trim()}`);
