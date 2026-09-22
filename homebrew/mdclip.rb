@@ -4,7 +4,7 @@
 class Mdclip < Formula
   desc "Copy markdown as rich text, and rich text as markdown"
   homepage "https://github.com/brgv-code/mdclip"
-  url "https://registry.npmjs.org/mdclip/-/mdclip-0.1.0.tgz"
+  url "https://registry.npmjs.org/mdclip/-/mdclip-0.2.0.tgz"
   sha256 "REPLACE_AFTER_FIRST_NPM_PUBLISH"
   license "MIT"
 

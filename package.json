@@ -1,6 +1,6 @@
 {
   "name": "mdclip",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Copy markdown as rich text (and rich text as markdown). Fixes pasting between LLMs, terminals, Obsidian, Linear, Notion, Motion, Docs.",
   "keywords": [
     "markdown",
